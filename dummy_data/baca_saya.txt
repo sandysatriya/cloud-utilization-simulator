@@ -1,0 +1,5 @@
+Dataset dummy deterministik untuk Cloud Utilization & Rightsizing Simulator.
+Semua server, harga, dan nilai utilization bersifat fiktif.
+Timestamp memakai zona waktu Asia/Jakarta tanpa offset; metadata batch menyatakan Asia/Jakarta.
+Beberapa timestamp sengaja dihilangkan untuk menunjukkan gap/kelengkapan data.
+SRV-API-03 tidak memiliki data memory; SRV-LEGACY-01 dikecualikan manual; environment dev dikecualikan oleh aturan.

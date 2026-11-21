@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+data/
+exports/
+*.xlsx
+*.csv
+!templates/*.csv
+!templates/*.xlsx
+!dummy_data/*.csv
+!dummy_data/*.txt
+.DS_Store

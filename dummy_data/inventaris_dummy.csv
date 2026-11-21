@@ -1,0 +1,13 @@
+ID server,Nama/alias,Environment,Region,Workload,vCPU,RAM GiB,Tipe instance,Status scope,Alasan pengecualian,Harga,Mata uang,Satuan harga,Label satuan lainnya,Tanggal sumber harga,Catatan
+SRV-WEB-01,web-frontend-1,production,jakarta,web,4,8,dummy-gp-2x4,,,1850000,IDR,per_month,,2025-12-15,Data dummy
+SRV-WEB-02,web-frontend-2,production,jakarta,web,4,8,dummy-gp-2x4,,,1850000,IDR,per_month,,2025-12-15,Data dummy
+SRV-API-01,api-gateway-1,production,jakarta,api,8,16,dummy-gp-4x8,,,3600000,IDR,per_month,,2025-12-15,Data dummy
+SRV-API-02,api-worker-1,production,singapore,api,4,8,dummy-gp-2x4,,,2100000,IDR,per_month,,2025-12-15,Data dummy
+SRV-API-03,api-worker-2,production,singapore,api,4,8,dummy-gp-2x4,,,,,,,,Data dummy
+SRV-DB-01,postgres-primary,production,jakarta,db,8,32,dummy-mem-4x16,,,5200000,IDR,per_month,,2025-12-15,Data dummy
+SRV-DB-02,postgres-replica,staging,jakarta,db,4,16,dummy-mem-2x8,,,2800000,IDR,per_month,,2025-12-15,Data dummy
+SRV-BATCH-01,nightly-batch,staging,jakarta,batch,4,8,dummy-gp-2x4,,,,,,,,Data dummy
+SRV-LEGACY-01,legacy-erp,staging,jakarta,erp,2,8,dummy-old-1x4,excluded,Aplikasi legacy menunggu dekomisioning.,1500000,IDR,per_month,,2025-12-15,Data dummy
+SRV-DEV-01,dev-sandbox,dev,jakarta,web,2,4,dummy-gp-1x2,,,,,,,,Data dummy
+SRV-DEV-02,dev-integration,dev,jakarta,api,2,4,dummy-gp-1x2,,,,,,,,Data dummy
+SRV-DEV-03,dev-batch,dev,jakarta,batch,2,4,dummy-gp-1x2,,,,,,,,Data dummy

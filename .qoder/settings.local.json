@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 --version 2>&1; which python3; ls -la /Users/sandysatriya/Documents/Qoder)",
+      "Read(//Users/sandysatriya/Documents/Qoder/**)",
+      "Bash(for v in python3.11 python3.12 python3.13; do command -v $v >/dev/null && $v --version; done; command -v uv && uv --version; command -v pip3 >/dev/null && pip3 --version)",
+      "Bash(python3.12 - <<'PY'\nimport re, sqlite3, pathlib\ntext = pathlib.Path\\('/Users/sandysatriya/Documents/Qoder/cloud-utilization-simulator/IMPLEMENTATION_PLAN.md'\\).read_text\\(\\)\nblocks = re.findall\\(r'```sql\\\\n\\(.*?\\)```', text, re.S\\)\nprint\\('blok sql:', len\\(blocks\\)\\)\nconn = sqlite3.connect\\(':memory:'\\)\nfor i, b in enumerate\\(blocks, 1\\):\n    try:\n        conn.executescript\\(b\\)\n        print\\(f'blok {i}: OK'\\)\n    except Exception as e:\n        print\\(f'blok {i}: ERROR -> {e}'\\)\nprint\\('tabel:', [r[0] for r in conn.execute\\(\"select name from sqlite_master where type='table' order by name\"\\)]\\)\nPY)"
+    ]
+  }
+}
