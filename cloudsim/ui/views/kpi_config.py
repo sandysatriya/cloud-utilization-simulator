@@ -5,8 +5,7 @@ from cloudsim.analysis.kpi import ALLOWED_AGGREGATES, ALLOWED_MEASURES, ALLOWED_
 from cloudsim.enums import AGGREGATE_METHODS, KPI_MEASURES, KPI_OPERATORS, KPI_STATUS
 from cloudsim.errors import AppError
 from cloudsim.services import baseline_service, kpi_service
-from cloudsim.ui.context import build_analysis, normalize_selection
-from cloudsim.ui.format import number, pct
+from cloudsim.ui.context import normalize_selection
 
 
 METRIC_LABELS = {"cpu": "CPU", "memory": "Memory"}
@@ -93,7 +92,7 @@ def _definition_form(definition: dict | None, baselines: list[dict]) -> None:
             key=f"{prefix}_upper",
         )
         scope_mode = col1.selectbox(
-            "Scope evaluasi", options=list(SCOPE_MODES),
+            "Scope KPI", options=list(SCOPE_MODES),
             format_func=lambda value: SCOPE_MODES[value],
             index=list(SCOPE_MODES).index((definition or {}).get("scope_mode"))
             if (definition or {}).get("scope_mode") in SCOPE_MODES else 0,
@@ -126,7 +125,7 @@ def _definition_form(definition: dict | None, baselines: list[dict]) -> None:
             },
         )
         save_draft = st.form_submit_button("Simpan draf", type="primary")
-        approve = st.form_submit_button("Setujui & aktifkan")
+        approve = st.form_submit_button("Setujui definisi")
     if not (save_draft or approve):
         return
     threshold_rows = []
@@ -171,7 +170,10 @@ def _definitions_tab(baselines: list[dict]) -> None:
     definitions = kpi_service.list_definitions()
     approved = [item for item in definitions if item["status"] == "approved"]
     if approved:
-        st.success(f"{len(approved)} KPI disetujui dan siap dievaluasi.")
+        st.success(
+            f"{len(approved)} definisi KPI disetujui. Perhitungan KPI belum tersedia; "
+            "definisi hanya disimpan sebagai konfigurasi."
+        )
     else:
         st.info("Modul KPI: Belum Dikonfigurasi. Formula KPI tidak dibuat otomatis oleh aplikasi.")
     if definitions:
@@ -226,93 +228,10 @@ def _definitions_tab(baselines: list[dict]) -> None:
             st.rerun()
 
 
-def _evaluation_tab(analysis) -> None:
-    definitions = kpi_service.list_definitions()
-    if not definitions:
-        st.info("Belum Dikonfigurasi. Buat dan setujui definisi KPI terlebih dahulu.")
-        return
-    normalize_selection("kpi_eval_select", [item["id"] for item in definitions])
-    selected_id = st.selectbox(
-        "Pilih KPI", options=[item["id"] for item in definitions],
-        format_func=lambda value: next(
-            f"#{item['id']} {item['name']} ({KPI_STATUS.get(item['status'], item['status'])})"
-            for item in definitions if item["id"] == value
-        ),
-        key="kpi_eval_select",
-    )
-    definition = kpi_service.get_definition(selected_id)
-    st.markdown(
-        f"**Status:** {KPI_STATUS.get(definition['status'], definition['status'])} | "
-        f"**Metrik:** {METRIC_LABELS.get(definition['metric'], '-')} | "
-        f"**Measure:** {KPI_MEASURES.get(definition['measure'], '-')} | "
-        f"**Agregasi:** {AGGREGATE_METHODS.get(definition['aggregate_method'], '-')}"
-    )
-    if definition["status"] != "approved":
-        st.info(
-            "KPI belum disetujui sehingga tidak dihitung. Modul ini tidak mengarang formula "
-            "dan tidak memakai eval/kode bebas."
-        )
-        return
-    baseline = None
-    if definition["scope_mode"] == "baseline_scope" and definition.get("baseline_id"):
-        try:
-            baseline = baseline_service.get_baseline(definition["baseline_id"])
-        except AppError as exc:
-            st.error(str(exc))
-            return
-        st.caption(
-            f"Scope baseline: #{baseline['id']} {baseline['name']} "
-            f"(formula {baseline['formula_version']})."
-        )
-    result = kpi_service.evaluate_definition(definition, analysis, baseline)
-    if not result.get("available"):
-        st.warning(result.get("reason") or "KPI tidak dapat dievaluasi.")
-        return
-    if result.get("aggregate_method") == "none":
-        st.metric("Jumlah server lulus", f"{result['passed_count']} / {result['total_count']}")
-        st.dataframe(pd.DataFrame([{
-            "Kode server": item["server_code"],
-            "Nilai (%)": number(item["value"]),
-            "Lulus": "Ya" if item["passed"] else "Tidak",
-        } for item in result["per_server"]]), width="stretch", hide_index=True)
-    else:
-        col1, col2 = st.columns(2)
-        col1.metric("Nilai agregat", pct(result["aggregate_value"]))
-        col2.metric(
-            "Evaluasi target",
-            "Lulus" if result["evaluated"] else "Tidak lulus"
-            if result["evaluated"] is not None else "Tidak tersedia",
-        )
-        st.caption(
-            f"Target: {KPI_OPERATORS.get(definition['operator'])} "
-            f"{definition['target_value']}"
-            + (f" s.d. {definition['target_value_upper']}"
-               if definition.get("target_value_upper") is not None else "")
-        )
-        if result.get("aggregate_disclaimer"):
-            st.info(result["aggregate_disclaimer"])
-        st.caption(
-            "Nilai agregat memakai metode yang dipilih pengguna. Rata-rata sederhana "
-            "antarserver bukan utilization seluruh kapasitas."
-        )
-    st.caption(
-        f"Versi formula KPI: {result.get('formula_version') or '-'}. "
-        "Batas capaian hanya dokumentasi; evaluasi memakai target/operator di atas."
-    )
-
-
 def render(filters: dict | None) -> None:
     st.title("Konfigurasi KPI")
     st.caption(
-        "Formula KPI tidak dibuat oleh aplikasi. Modul tetap Belum Dikonfigurasi sampai "
-        "definisi disetujui pengguna."
+        "Formula KPI tidak dibuat oleh aplikasi. Modul ini hanya menyimpan konfigurasi KPI; "
+        "nilai KPI belum dihitung pada versi ini."
     )
-    analysis = build_analysis(filters)
-    if analysis is None:
-        return
-    baselines = baseline_service.list_baselines()
-    tab_def, tab_eval = st.tabs(["Definisi & Approval", "Evaluasi"])
-    with tab_def:
-        _definitions_tab(baselines)
-    with tab_eval:
-        _evaluation_tab(analysis)
+    _definitions_tab(baseline_service.list_baselines())

@@ -64,6 +64,9 @@ def test_all_pages_render_without_exceptions(dataset, monkeypatch):
     _assert_clean(at)
     for page, _label in PAGES:
         _navigate(at, page)
+        if page == "kpi":
+            assert not at.tabs
+            assert any("Perhitungan KPI belum tersedia" in item.value for item in at.success)
 
 
 def test_simulator_form_computes_and_export_button_produces_download(dataset, monkeypatch):
@@ -88,6 +91,11 @@ def test_simulator_form_computes_and_export_button_produces_download(dataset, mo
     assert any(item.value == "Hasil estimasi" for item in at.subheader)
 
     _navigate(at, "export")
+    raw_checkbox = next(
+        item for item in at.checkbox if item.label.startswith("Sertakan data sampel mentah")
+    )
+    raw_checkbox.check().run(timeout=60)
+    _assert_clean(at)
     export_button = next(
         item for item in at.button if item.label == "Buat file Excel"
     )

@@ -1,10 +1,9 @@
 import pytest
 
+from cloudsim.analysis import kpi as kpi_analysis
 from cloudsim.config import FORMULA_VERSION_KPI
 from cloudsim.errors import ValidationError
 from cloudsim.services import baseline_service, kpi_service
-from cloudsim.services.analysis_service import analyze
-from tests.helpers import END, START, add_time_batch, series
 
 
 def _definition(**overrides):
@@ -24,71 +23,31 @@ def _definition(**overrides):
     return data
 
 
-def test_unapproved_kpi_is_not_evaluated(dataset):
+def test_new_kpi_is_saved_as_draft(dataset):
     kpi_id = kpi_service.save_definition(_definition(), db_path=dataset.db_path)
     definition = kpi_service.get_definition(kpi_id, db_path=dataset.db_path)
     assert definition["status"] == "draft"
-    result = kpi_service.evaluate_definition(definition, dataset.analysis)
-    assert result["available"] is False
-    assert result["reason"] == "KPI belum disetujui."
+    assert definition["approved_at"] is None
+    assert definition["formula_version"] is None
 
 
-def test_approved_kpi_weighted_evaluation(dataset):
-    kpi_id = kpi_service.save_definition(
-        _definition(), approve=True, db_path=dataset.db_path
-    )
-    definition = kpi_service.get_definition(kpi_id, db_path=dataset.db_path)
-    assert definition["status"] == "approved"
-    assert definition["formula_version"] == FORMULA_VERSION_KPI
-
-    result = kpi_service.evaluate_definition(definition, dataset.analysis)
-    assert result["available"] is True
-    assert result["aggregate_value"] == pytest.approx(
-        (38.5 * 4 + 48.5 * 8) / 12
-    )
-    assert result["evaluated"] is True
-    assert result["total_count"] == 2
-
-
-def test_simple_mean_and_per_server_modes(dataset):
-    simple_id = kpi_service.save_definition(
-        _definition(aggregate_method="simple_mean", target_value=45),
-        approve=True, db_path=dataset.db_path,
-    )
-    simple = kpi_service.evaluate_definition(
-        kpi_service.get_definition(simple_id, db_path=dataset.db_path),
-        dataset.analysis,
-    )
-    assert simple["aggregate_value"] == pytest.approx(43.5)
-    assert simple["evaluated"] is True
-    assert "bukan utilization seluruh kapasitas" in simple["aggregate_disclaimer"]
-
-    per_server_id = kpi_service.save_definition(
-        _definition(aggregate_method="none", target_value=50),
-        approve=True, db_path=dataset.db_path,
-    )
-    per_server = kpi_service.evaluate_definition(
-        kpi_service.get_definition(per_server_id, db_path=dataset.db_path),
-        dataset.analysis,
-    )
-    assert per_server["aggregate_value"] is None
-    assert per_server["passed_count"] == 2
-    assert per_server["total_count"] == 2
-
-
-def test_between_operator_uses_user_bounds(dataset):
+def test_approved_kpi_stores_configuration(dataset):
     kpi_id = kpi_service.save_definition(
         _definition(operator="between", target_value=44, target_value_upper=46),
         approve=True, db_path=dataset.db_path,
     )
-    result = kpi_service.evaluate_definition(
-        kpi_service.get_definition(kpi_id, db_path=dataset.db_path),
-        dataset.analysis,
-    )
-    assert result["evaluated"] is True
+    definition = kpi_service.get_definition(kpi_id, db_path=dataset.db_path)
+    assert definition["status"] == "approved"
+    assert definition["approved_at"] is not None
+    assert definition["formula_version"] == FORMULA_VERSION_KPI
+    assert definition["metric"] == "cpu"
+    assert definition["measure"] == "p95"
+    assert definition["aggregate_method"] == "capacity_weighted_vcpu"
+    assert definition["target_value"] == 44
+    assert definition["target_value_upper"] == 46
 
 
-def test_baseline_scope_uses_baseline_snapshot(dataset):
+def test_baseline_scope_stores_baseline_reference(dataset):
     baseline_id = baseline_service.create_baseline(
         "Baseline KPI", dataset.analysis, db_path=dataset.db_path
     )
@@ -96,27 +55,17 @@ def test_baseline_scope_uses_baseline_snapshot(dataset):
         _definition(scope_mode="baseline_scope", baseline_id=baseline_id),
         approve=True, db_path=dataset.db_path,
     )
-    new_cpu_batch, _ = add_time_batch(
-        dataset.db_path, "cpu",
-        {"SRV-A": series(START + 4 * 3600, [90, 90]), "SRV-B": series(START + 4 * 3600, [90, 90])},
-    )
-    current = analyze(
-        START + 4 * 3600, END + 4 * 3600, [new_cpu_batch], [dataset.memory_batch],
-        "UTC", db_path=dataset.db_path,
-    )
     definition = kpi_service.get_definition(kpi_id, db_path=dataset.db_path)
+    assert definition["scope_mode"] == "baseline_scope"
+    assert definition["baseline_id"] == baseline_id
 
-    current_scope = kpi_service.evaluate_definition(definition, current)
-    baseline_scope = kpi_service.evaluate_definition(
-        definition, current,
-        baseline_service.get_baseline(baseline_id, db_path=dataset.db_path),
-    )
-    assert current_scope["available"] is False
-    assert "Baseline" in current_scope["reason"]
-    assert baseline_scope["scope_mode"] == "baseline_scope"
-    assert baseline_scope["aggregate_value"] == pytest.approx(
-        (38.5 * 4 + 48.5 * 8) / 12
-    )
+
+def test_kpi_module_has_no_computation():
+    for module in (kpi_service, kpi_analysis):
+        assert not any(
+            name in dir(module)
+            for name in ("compute_kpi", "evaluate", "evaluate_definition", "aggregate_value")
+        )
 
 
 def test_approval_requires_complete_definition(dataset):
@@ -174,7 +123,7 @@ def test_adjacent_thresholds_are_allowed(dataset):
     assert [item["label"] for item in definition["thresholds"]] == ["Rendah", "Tinggi"]
 
 
-def test_revoke_disables_evaluation(dataset):
+def test_revoke_returns_kpi_to_draft(dataset):
     kpi_id = kpi_service.save_definition(
         _definition(), approve=True, db_path=dataset.db_path
     )
@@ -183,8 +132,6 @@ def test_revoke_disables_evaluation(dataset):
     assert definition["status"] == "draft"
     assert definition["approved_at"] is None
     assert definition["formula_version"] is None
-    result = kpi_service.evaluate_definition(definition, dataset.analysis)
-    assert result["available"] is False
 
 
 def test_saving_existing_kpi_without_approval_returns_to_draft(dataset):

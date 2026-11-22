@@ -159,23 +159,26 @@ Definisi KPI menyimpan:
 - scope: periode aktif atau snapshot baseline;
 - threshold capaian (dokumentasi).
 
-Evaluasi hanya berjalan bila status `approved`. Nilai dihitung dari statistik
-yang sudah ada, memakai agregasi di bagian 4. Operator dibandingkan dengan
-target pengguna. Tidak ada formula bebas, `eval`, atau kode dari input.
+Versi ini hanya menyimpan konfigurasi KPI. Status `approved` menandai bahwa
+definisi sudah disetujui pengguna, tetapi tidak ada nilai, skor, atau status
+lulus/gagal yang dihitung, baik di aplikasi maupun di export. Perhitungan KPI
+ditunda sampai ada keputusan terpisah. Tidak ada formula bebas, `eval`, atau
+kode dari input.
 
-`threshold` capaian tidak dipakai untuk menghitung lulus/gagal; evaluasi memakai
-target dan operator. Threshold hanya dokumentasi sampai ada keputusan formula
-bertingkat.
-
-KPI yang belum disetujui selalu "Belum Dikonfigurasi" dan tidak menghasilkan
-skor.
+Tanpa definisi KPI, modul berstatus "Belum Dikonfigurasi".
 
 ## 8. Keamanan export
 
 Semua teks yang diawali `=`, `+`, `-`, `@`, TAB, atau CR diberi awalan apostrof
 saat ditulis ke Excel. Nama sheet dibersihkan dari karakter terlarang dan
-dibatasi 31 karakter. File tidak berisi makro atau tautan eksternal. Data
-sampel mentah tidak diekspor.
+dibatasi 31 karakter. File tidak berisi makro atau tautan eksternal.
+
+Data sampel mentah bersifat opsional. Bila dicentang, export menambah sheet
+`Data Mentah CPU` dan `Data Mentah Memory`. Isinya hanya sampel server dalam
+scope pada periode aktif, sama persis dengan sampel yang dipakai untuk menghitung
+statistik: kode server, metrik, waktu zona tampilan, waktu UTC, dan nilai. Gap
+tidak diisi. Bila satu metrik melebihi 1.048.575 baris (batas Excel), export
+ditolak dengan pesan agar periode atau scope dipersempit.
 
 ## 9. Batasan interpretasi
 

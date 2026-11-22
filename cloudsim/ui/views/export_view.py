@@ -12,29 +12,11 @@ from cloudsim.services import (
 from cloudsim.ui.context import build_analysis, normalize_selection
 
 
-def _kpi_results(analysis) -> list[dict]:
-    results = []
-    for item in kpi_service.list_definitions():
-        definition = kpi_service.get_definition(item["id"])
-        evaluation = {"available": False, "reason": "KPI belum disetujui.",
-                      "status": definition.get("status")}
-        if definition.get("status") == "approved":
-            baseline = None
-            if definition.get("scope_mode") == "baseline_scope" and definition.get("baseline_id"):
-                try:
-                    baseline = baseline_service.get_baseline(definition["baseline_id"])
-                except AppError:
-                    baseline = None
-            evaluation = kpi_service.evaluate_definition(definition, analysis, baseline)
-        results.append({"definition": definition, "evaluation": evaluation})
-    return results
-
-
 def render(filters: dict | None) -> None:
     st.title("Export Excel")
     st.caption(
         "Export berisi ringkasan, statistik, pengecualian, sumber data, baseline, simulasi, "
-        "KPI, asumsi, dan peringatan. Data sampel mentah tidak diekspor."
+        "konfigurasi KPI, asumsi, dan peringatan. Data sampel mentah dapat disertakan opsional."
     )
     analysis = build_analysis(filters)
     if analysis is None:
@@ -83,9 +65,23 @@ def render(filters: dict | None) -> None:
     else:
         st.caption("Belum ada simulasi tersimpan.")
 
-    kpi_results = _kpi_results(analysis)
-    if not any(entry["definition"].get("status") == "approved" for entry in kpi_results):
-        st.info("KPI belum dikonfigurasi/disetujui; sheet KPI akan menyatakan Belum Dikonfigurasi.")
+    kpi_definitions = [
+        kpi_service.get_definition(item["id"]) for item in kpi_service.list_definitions()
+    ]
+    if not kpi_definitions:
+        st.info("KPI belum dikonfigurasi; sheet KPI akan menyatakan Belum Dikonfigurasi.")
+
+    cpu_rows = export_service.raw_sample_count(analysis, "cpu")
+    memory_rows = export_service.raw_sample_count(analysis, "memory")
+    include_raw = st.checkbox(
+        f"Sertakan data sampel mentah ({cpu_rows:,} baris CPU, {memory_rows:,} baris memory)",
+        key="export_include_raw",
+    )
+    if include_raw:
+        st.caption(
+            "Hanya server dalam scope dan periode yang dipilih. Nilai apa adanya; gap tidak diisi. "
+            "Data besar membuat file dan proses export lebih lambat."
+        )
 
     st.markdown("**Isi export**")
     st.write(
@@ -95,8 +91,9 @@ def render(filters: dict | None) -> None:
         "- Metadata batch sumber\n"
         "- Delta baseline (jika dipilih), dengan pemisahan pp dan persen relatif\n"
         "- Hasil simulasi (jika dipilih) dan asumsi\n"
-        "- KPI yang disetujui dan hasil evaluasinya\n"
-        "- Asumsi, batasan, dan peringatan"
+        "- Konfigurasi KPI (tanpa perhitungan nilai)\n"
+        "- Asumsi, batasan, dan peringatan\n"
+        "- Data sampel mentah per metrik (jika dicentang)"
     )
     if st.button("Buat file Excel", type="primary"):
         try:
@@ -104,9 +101,14 @@ def render(filters: dict | None) -> None:
                 analysis,
                 simulation=simulation,
                 comparison=comparison,
-                kpi_results=kpi_results,
+                kpi_definitions=kpi_definitions,
+                include_raw_samples=include_raw,
             )
+        except AppError as exc:
+            st.session_state.pop("export_bytes", None)
+            st.error(str(exc))
         except Exception as exc:
+            st.session_state.pop("export_bytes", None)
             st.error(f"Export gagal: {exc}")
         else:
             st.session_state["export_bytes"] = data

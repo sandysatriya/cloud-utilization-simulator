@@ -64,8 +64,11 @@ kredensial, tidak melakukan resize, dan tidak mengeksekusi perintah cloud.
 | KPI | Definisi menyimpan kolom `metric` (CPU/memory) selain `measure`, agregasi, operator, target, scope, dan threshold. Hanya enum whitelisted; tanpa `eval`. |
 | Snapshot simulasi | Menyimpan snapshot metadata batch sumber (JSON), tipe statistik gabungan CPU/memory, harga target, dan kelengkapan minimum. Snapshot harga sumber tidak disimpan. |
 | Tabel KPI | `kpi_definition` memakai `metric` dan `measure`; status `approved` mensyaratkan keduanya terisi. |
-| Pengujian | 84 test otomatis: backend + Streamlit `AppTest`; lihat `docs/hasil_pengujian.md`. |
+| Pengujian | 85 test otomatis: backend + Streamlit `AppTest`; lihat `docs/hasil_pengujian.md`. |
 | Database versi lebih baru | Ditolak tanpa mengubah data, bukan dibuka diam-diam sebagai versi lama. |
+| KPI (Q4) | Konfigurasi saja. Evaluasi KPI, tab Evaluasi, dan sheet `KPI per Server` dihapus; sheet `KPI` hanya berisi definisi. |
+| Agregat antarserver (Q5) | Rata-rata sederhana tetap ditampilkan bersama agregat berbobot, dengan label pembatas. |
+| Export data mentah (Q11) | Sheet data mentah opsional per metrik; batas 1.048.575 baris per sheet. |
 
 
 ---
@@ -776,7 +779,7 @@ estimasi_MEM = nilai_MEM × RAM_sumber  / RAM_target
   metrik.
 - Tampilkan rumus di UI dan export.
 - Rata-rata sederhana hanya boleh muncul jika diberi label "rata-rata sederhana
-  antarserver (tanpa pembobotan), bukan utilization total kapasitas" (pending Q5).
+  antarserver (tanpa pembobotan), bukan utilization total kapasitas" (diputuskan Q5: tetap ditampilkan).
 
 ### 5.6 KPI
 
@@ -913,7 +916,7 @@ Aturan export:
 - Angka statistik tetap numerik; tanggal ditulis ISO dengan label zona waktu.
 - Tidak ada makro, tautan eksternal, atau query data saat file dibuka.
 - Formula/versi metode dan disclaimer disertakan dalam file.
-- Raw time series tidak diekspor (pending Q11).
+- Raw time series diekspor hanya bila dicentang (diputuskan Q11).
 
 ---
 
@@ -1110,16 +1113,15 @@ dipotong. Setuju?
 Usulan: duplikat identik dilewati dengan laporan; konflik selalu error; tidak ada
 mode overwrite di MVP (hapus batch lama lalu impor ulang). Setuju?
 
-**Q4. Cakupan KPI di versi pertama**
-Usulan: sediakan konfigurasi terstruktur + approval gate, dan hitung KPI hanya
-setelah disetujui, memakai metode whitelisted (tanpa formula karangan).
-Alternatif: konfigurasi saja, perhitungan ditunda. Pilihan Anda: ?
+**Q4. Cakupan KPI di versi pertama — DIPUTUSKAN (2026-11-22)**
+Konfigurasi saja; perhitungan ditunda. Definisi tetap bisa disimpan sebagai
+draf dan disetujui, tetapi aplikasi dan export tidak menghitung nilai,
+agregat, atau lulus/gagal KPI.
 
-**Q5. Agregat antarserver**
-Usulan: tidak ada satu angka "utilization total kapasitas"; tampilkan per server,
-plus agregat opsional berbobot vCPU/RAM dengan rumus dan `n/N` terlihat.
-Apakah rata-rata sederhana antarserver juga perlu ditampilkan (dengan label
-khusus), atau dihilangkan?
+**Q5. Agregat antarserver — DIPUTUSKAN (2026-11-22)**
+Rata-rata sederhana antarserver tetap ditampilkan, berdampingan dengan agregat
+berbobot vCPU/RAM, dengan label "bukan utilization seluruh kapasitas" dan
+jumlah server `n/N`. Tidak ada perubahan dari implementasi v0.1.0.
 
 ### Perlu konfirmasi, dapat memakai default
 
@@ -1142,9 +1144,10 @@ eksplisit; hasil ditandai `insufficient_data`, bukan rekomendasi. Setuju?
 **Q10. File gabungan CPU+memory**
 Usulan: satu metrik per import. Apakah perlu dukungan satu file berisi dua metrik?
 
-**Q11. Export raw samples**
-Usulan: tidak menyertakan raw time series; hanya ringkasan/statistik/metadata.
-Apakah raw data perlu sebagai sheet opsional?
+**Q11. Export raw samples — DIPUTUSKAN (2026-11-22)**
+Perlu, sebagai opsi. Checkbox di halaman Export menambah sheet `Data Mentah CPU`
+dan `Data Mentah Memory` untuk server dalam scope dan periode aktif. Export
+ditolak bila satu metrik melebihi batas baris Excel.
 
 **Q12. Ambang default**
 Usulan awal: minimal 24 sampel, kelengkapan minimal 80%, ambang peringatan

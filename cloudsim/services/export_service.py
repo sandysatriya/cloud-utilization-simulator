@@ -18,8 +18,11 @@ from cloudsim.enums import (
     QUALITY_FLAGS,
     label,
 )
+from cloudsim.errors import ValidationError
 from cloudsim.io.excel_writer import workbook_bytes
 
+EXCEL_MAX_DATA_ROWS = 1_048_575
+KPI_NOT_COMPUTED = "Belum dihitung (konfigurasi saja)"
 MEASURE_LABELS = {"avg": "Rata-rata", "p95": "P95", "max": "Maksimum"}
 METRIC_LABELS = {"cpu": "CPU", "memory": "Memory"}
 
@@ -30,7 +33,7 @@ def _local(ts, tz_name: str) -> str | None:
     return datetime.fromtimestamp(int(ts), ZoneInfo(tz_name)).isoformat(sep=" ")
 
 
-def _summary_sheet(analysis, simulation, comparison) -> pd.DataFrame:
+def _summary_sheet(analysis, simulation, comparison, include_raw_samples: bool) -> pd.DataFrame:
     rows = [
         ("Aplikasi", APP_NAME),
         ("Versi aplikasi", APP_VERSION),
@@ -54,7 +57,11 @@ def _summary_sheet(analysis, simulation, comparison) -> pd.DataFrame:
         ("Baseline dibandingkan", comparison.get("baseline_name") if comparison else "(tidak ada)"),
         ("Simulasi diekspor", simulation.get("name") if simulation else "(tidak ada)"),
         ("Catatan", STAT_DISCLAIMER),
-        ("Catatan tambahan", "Data sampel mentah tidak diekspor; hanya ringkasan dan metadata."),
+        ("Data sampel mentah", (
+            "Disertakan pada sheet Data Mentah CPU/Memory: server dalam scope dan periode ini, "
+            "nilai apa adanya tanpa pengisian gap."
+            if include_raw_samples else "Tidak disertakan; hanya ringkasan dan metadata."
+        )),
     ]
     return pd.DataFrame(rows, columns=["Keterangan", "Nilai"])
 
@@ -244,11 +251,9 @@ def _simulation_results(simulation: dict | None) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def _kpi_sheet(kpi_results: list[dict] | None) -> pd.DataFrame:
+def _kpi_sheet(kpi_definitions: list[dict] | None) -> pd.DataFrame:
     rows = []
-    for entry in kpi_results or []:
-        definition = entry.get("definition") or {}
-        evaluation = entry.get("evaluation") or {}
+    for definition in kpi_definitions or []:
         rows.append({
             "ID": definition.get("id"),
             "Nama": definition.get("name"),
@@ -261,43 +266,49 @@ def _kpi_sheet(kpi_results: list[dict] | None) -> pd.DataFrame:
             "Batas atas": definition.get("target_value_upper"),
             "Scope": definition.get("scope_mode"),
             "Baseline ID": definition.get("baseline_id"),
-            "Nilai agregat": evaluation.get("aggregate_value"),
-            "Jumlah dievaluasi": evaluation.get("total_count"),
-            "Jumlah lulus": evaluation.get("passed_count"),
-            "Lulus": (
-                "Ya" if evaluation.get("evaluated") is True
-                else "Tidak" if evaluation.get("evaluated") is False
-                else "Tidak tersedia"
-            ),
-            "Alasan": evaluation.get("reason") or evaluation.get("aggregate_disclaimer"),
-            "Versi formula": evaluation.get("formula_version"),
+            "Deskripsi": definition.get("description"),
+            "Disetujui": definition.get("approved_at"),
+            "Versi formula": definition.get("formula_version"),
+            "Perhitungan": KPI_NOT_COMPUTED,
         })
     if not rows:
         rows.append({
             "Nama": "Belum Dikonfigurasi",
             "Status": KPI_STATUS["unconfigured"],
-            "Alasan": "Belum ada definisi KPI yang disetujui.",
+            "Perhitungan": "Belum ada definisi KPI.",
         })
     return pd.DataFrame(rows)
 
 
-def _kpi_server_sheet(kpi_results: list[dict] | None) -> pd.DataFrame:
+def raw_sample_count(analysis, metric: str) -> int:
+    return sum(len(item.series) for item in analysis.stats if item.metric == metric)
+
+
+def _raw_sample_sheet(analysis, metric: str) -> pd.DataFrame:
+    count = raw_sample_count(analysis, metric)
+    if count > EXCEL_MAX_DATA_ROWS:
+        raise ValidationError(
+            f"Data mentah {METRIC_LABELS[metric]} berisi {count} baris, melebihi batas Excel "
+            f"{EXCEL_MAX_DATA_ROWS} baris per sheet. Persempit periode atau scope, "
+            "atau export tanpa data mentah."
+        )
+    tz = analysis.display_timezone
     rows = []
-    for entry in kpi_results or []:
-        definition = entry.get("definition") or {}
-        evaluation = entry.get("evaluation") or {}
-        for item in evaluation.get("per_server") or []:
+    for item in analysis.stats:
+        if item.metric != metric:
+            continue
+        for ts, value in item.series:
             rows.append({
-                "KPI": definition.get("name"),
-                "Kode server": item["server_code"],
-                "Nilai": item.get("value"),
-                "Lulus": (
-                    "Ya" if item.get("passed") is True
-                    else "Tidak" if item.get("passed") is False
-                    else "Tidak dievaluasi"
-                ),
+                "Kode server": item.server.code,
+                "Metrik": METRIC_LABELS[metric],
+                f"Waktu tampilan ({tz})": _local(ts, tz),
+                "Waktu UTC": _local(ts, "UTC"),
+                "Nilai (%)": value,
             })
-    return pd.DataFrame(rows)
+    return pd.DataFrame(
+        rows,
+        columns=["Kode server", "Metrik", f"Waktu tampilan ({tz})", "Waktu UTC", "Nilai (%)"],
+    )
 
 
 def _assumptions_sheet(analysis, simulation, comparison) -> pd.DataFrame:
@@ -316,7 +327,8 @@ def _assumptions_sheet(analysis, simulation, comparison) -> pd.DataFrame:
                    "aplikasi belum dinilai."),
         ("Biaya", "Estimasi biaya hanya membandingkan harga input dengan mata uang dan satuan "
                   "yang sama; tidak ada konversi atau asumsi harga proporsional."),
-        ("KPI", "KPI tetap Belum Dikonfigurasi sampai formula disetujui pengguna."),
+        ("KPI", "Modul KPI hanya menyimpan konfigurasi; nilai KPI belum dihitung pada versi "
+                "ini, termasuk untuk definisi yang sudah disetujui."),
     ]
     for warning in analysis.warnings:
         rows.append(("Peringatan analisis", warning))
@@ -339,10 +351,11 @@ def build_export(
     *,
     simulation: dict | None = None,
     comparison: dict | None = None,
-    kpi_results: list[dict] | None = None,
+    kpi_definitions: list[dict] | None = None,
+    include_raw_samples: bool = False,
 ) -> bytes:
     sheets = [
-        ("Ringkasan", _summary_sheet(analysis, simulation, comparison)),
+        ("Ringkasan", _summary_sheet(analysis, simulation, comparison, include_raw_samples)),
         ("Statistik Server", _stats_sheet(analysis)),
         ("Inventaris Dikecualikan", _exclusion_sheet(analysis)),
         ("Sumber Data", _source_sheet(analysis)),
@@ -350,8 +363,12 @@ def build_export(
         ("Baseline Delta", _baseline_delta(comparison)),
         ("Simulasi Ringkasan", _simulation_summary(simulation)),
         ("Simulasi Hasil", _simulation_results(simulation)),
-        ("KPI", _kpi_sheet(kpi_results)),
-        ("KPI per Server", _kpi_server_sheet(kpi_results)),
+        ("KPI", _kpi_sheet(kpi_definitions)),
         ("Asumsi & Peringatan", _assumptions_sheet(analysis, simulation, comparison)),
     ]
+    if include_raw_samples:
+        sheets.extend([
+            ("Data Mentah CPU", _raw_sample_sheet(analysis, "cpu")),
+            ("Data Mentah Memory", _raw_sample_sheet(analysis, "memory")),
+        ])
     return workbook_bytes(sheets)

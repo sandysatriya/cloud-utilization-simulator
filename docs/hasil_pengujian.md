@@ -1,6 +1,6 @@
 # Hasil Pengujian
 
-Tanggal pengujian: 2026-11-21
+Tanggal pengujian: 2026-11-21, diperbarui 2026-11-22 (keputusan Q4, Q5, Q11)
 
 ## 1. Environment
 
@@ -28,7 +28,7 @@ Perintah:
 Hasil terakhir:
 
 ```text
-84 passed in 1.22s
+85 passed in 1.62s
 ```
 
 Rincian per file:
@@ -39,10 +39,10 @@ Rincian per file:
 | `tests/test_import_validation.py` | 23 | Nilai kosong, range, duplikat, konflik DB, timezone/DST, gap, metadata campuran, tipe batch |
 | `tests/test_scope_and_baseline.py` | 10 | Exclusion manual/rule, snapshot immutable, perubahan scope/kualitas/metadata, delta pp |
 | `tests/test_resize_and_cost.py` | 14 | Kapasitas tetap/turun, >100%, data kurang, exclusion, harga, snapshot simulasi |
-| `tests/test_kpi_config.py` | 11 | Draft/approval, agregasi, between, baseline scope, threshold overlap, revoke |
-| `tests/test_export_and_security.py` | 7 | Formula injection, sheet name, no network/cloud import, no eval/exec, socket runtime |
+| `tests/test_kpi_config.py` | 10 | Draft/approval, konfigurasi tersimpan, baseline scope, tanpa fungsi perhitungan, threshold overlap, revoke |
+| `tests/test_export_and_security.py` | 9 | Formula injection, sheet name, KPI tanpa nilai, data mentah opsional + batas baris Excel, no network/cloud import, no eval/exec, socket runtime |
 | `tests/test_db_and_settings.py` | 9 | Migrasi idempotent, versi DB, FK, validasi ambang/timezone, larangan hapus server |
-| `tests/test_ui_smoke.py` | 2 | 7 halaman Streamlit, form simulator, export download |
+| `tests/test_ui_smoke.py` | 2 | 7 halaman Streamlit, KPI tanpa tab evaluasi, form simulator, export dengan data mentah |
 
 ## 3. Pemetaan ke kewajiban brief
 
@@ -56,7 +56,7 @@ Rincian per file:
 | Harga tidak tersedia & data tidak cukup | Selisih harga `NULL` dengan alasan; flag data belum cukup |
 | Tidak ada panggilan API cloud | Scan AST impor + patch `socket` saat analisis/simulasi/export |
 | Formula injection export | Semua sel berbahaya diberi apostrof; tidak ada sel formula, makro, atau external link |
-| KPI tidak dikarang | Draft tidak dievaluasi; approval gate; whitelist enum; scan tanpa `eval`/`exec` |
+| KPI tidak dikarang | Konfigurasi saja, tidak ada fungsi perhitungan KPI; approval gate; whitelist enum; scan tanpa `eval`/`exec` |
 | UI dasar | `AppTest` membuka 7 halaman, menghitung simulasi, dan menghasilkan download Excel |
 
 ## 4. Verifikasi seed dummy
@@ -117,11 +117,11 @@ Tidak diuji otomatis:
 - Tidak ada kredensial yang diminta atau disimpan.
 - Aplikasi tidak menjalankan perintah resize/cloud.
 - Telemetry Streamlit dimatikan; server dibatasi ke `127.0.0.1`.
-- Export disanitasi terhadap formula injection dan tidak memuat sampel mentah.
+- Export disanitasi terhadap formula injection; sampel mentah hanya dimuat bila dicentang.
 - Semua data dummy fiktif; tidak ada nama vendor/harga nyata yang dikarang.
 
 ## 8. Kesimpulan
 
-MVP lokal lulus 84 test otomatis dan verifikasi seed dummy. Statusnya siap
-direview, bukan siap produksi. Persetujuan formula, ambang, dan cakupan KPI masih
-menunggu keputusan pengguna.
+MVP lokal lulus 85 test otomatis dan verifikasi seed dummy. Statusnya siap
+direview, bukan siap produksi. Q1, Q4, Q5, dan Q11 sudah diputuskan; pertanyaan
+lain di `IMPLEMENTATION_PLAN.md` bagian 13 masih memakai usulan default.

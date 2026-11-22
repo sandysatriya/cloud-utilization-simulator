@@ -92,20 +92,22 @@ boleh disimpulkan dari aplikasi.
 ## 6. KPI
 
 - KPI default "Belum Dikonfigurasi".
-- Draft tidak dievaluasi. Evaluasi hanya untuk definisi berstatus `approved`.
+- Versi ini hanya menyimpan konfigurasi. Nilai KPI tidak dihitung, termasuk
+  untuk definisi berstatus `approved`.
 - Hanya metrik, measure, agregasi, dan operator whitelisted. Tidak ada formula
   bebas, `eval`, atau eksekusi kode.
 - Target dan operator ditentukan pengguna; aplikasi tidak mengarang formula KPI.
-- Threshold capaian hanya dokumentasi dan tidak dipakai untuk menentukan
-  lulus/gagal.
-- Mode scope baseline memakai snapshot baseline; mode periode aktif memakai
-  analisis yang sedang dipilih.
+- Threshold capaian dan mode scope (periode aktif atau baseline) disimpan
+  sebagai bagian dari konfigurasi.
 - KPI tidak boleh disetujui tanpa metrik, measure, agregasi, operator, dan
   target yang lengkap. Batas atas wajib untuk operator `between`.
 
 ## 7. Export dan keamanan
 
-- Export tidak menyertakan data sampel mentah.
+- Data sampel mentah hanya diekspor bila dicentang, terbatas pada server dalam
+  scope dan periode aktif. Maksimal 1.048.575 baris per metrik; lebih dari itu
+  export ditolak.
+- Data mentah dapat berisi informasi operasional; periksa sebelum dibagikan.
 - Teks berawalan `=`, `+`, `-`, `@`, TAB, atau CR disanitasi agar tidak menjadi
   formula Excel.
 - Nama sheet dibersihkan dan dibatasi 31 karakter; tidak ada makro atau tautan

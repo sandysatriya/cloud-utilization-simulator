@@ -1,11 +1,6 @@
-from types import SimpleNamespace
 import sqlite3
 
-from cloudsim.analysis.kpi import (
-    compute_kpi,
-    validate_definition,
-    validate_thresholds,
-)
+from cloudsim.analysis.kpi import validate_definition, validate_thresholds
 from cloudsim.db.connection import read_connection, transaction
 from cloudsim.db.repositories import kpi as kpi_repo
 from cloudsim.errors import NotFoundError, ValidationError
@@ -70,45 +65,3 @@ def delete_definition(kpi_id: int, db_path=None) -> None:
     with transaction(db_path) as conn:
         kpi_repo.delete_definition(conn, kpi_id)
 
-
-def _baseline_stats(baseline: dict) -> list:
-    rows = []
-    for item in baseline["stats"]:
-        rows.append(SimpleNamespace(
-            metric=item["metric"],
-            avg=item.get("avg_value"),
-            p95=item.get("p95_value"),
-            max=item.get("max_value"),
-            server=SimpleNamespace(
-                code=item["server_code"],
-                vcpu=item["vcpu"],
-                ram_gib=item["ram_gib"],
-            ),
-        ))
-    return rows
-
-
-def evaluate_definition(definition: dict, analysis, baseline: dict | None = None) -> dict:
-    if definition.get("scope_mode") == "baseline_scope":
-        if baseline is None:
-            return {
-                "available": False,
-                "reason": "Baseline untuk scope KPI tidak ditemukan.",
-                "status": definition.get("status"),
-            }
-        stats = _baseline_stats(baseline)
-    else:
-        stats = analysis.stats
-    result = compute_kpi(definition, stats)
-    result["scope_mode"] = definition.get("scope_mode") or "current_scope"
-    result["formula_version"] = definition.get("formula_version")
-    if result.get("available") and result.get("aggregate_method") == "simple_mean":
-        result["aggregate_disclaimer"] = (
-            "Rata-rata sederhana antarserver bukan utilization seluruh kapasitas."
-        )
-    if result.get("available") and result.get("aggregate_method", "").startswith("capacity_weighted"):
-        result["aggregate_disclaimer"] = (
-            "Agregasi berbobot kapasitas memakai kapasitas yang dapat dihitung; "
-            "server tanpa nilai tidak disertakan."
-        )
-    return result

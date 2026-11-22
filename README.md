@@ -25,10 +25,11 @@ resize otomatis. Hasil simulasi adalah estimasi dengan asumsi beban tetap.
   data belum cukup. Nilai di atas 100% tidak dipotong.
 - Perbandingan harga input hanya bila mata uang dan satuan sama; tanpa konversi
   dan tanpa klaim penghematan bulanan.
-- Konfigurasi KPI terstruktur dengan draft, persetujuan eksplisit, dan evaluasi
-  hanya setelah disetujui.
+- Konfigurasi KPI terstruktur dengan draft dan persetujuan eksplisit. Versi ini
+  hanya menyimpan konfigurasi; nilai KPI belum dihitung.
 - Export Excel berisi ringkasan, statistik, pengecualian, sumber data, baseline,
-  simulasi, KPI, asumsi, dan peringatan. Data sampel mentah tidak diekspor.
+  simulasi, konfigurasi KPI, asumsi, dan peringatan. Data sampel mentah dapat
+  disertakan secara opsional (satu sheet per metrik).
 
 ## Struktur singkat
 
@@ -97,8 +98,9 @@ CLOUDSIM_DB_PATH=/path/ke/app.db streamlit run app.py
 5. **Simulator Resize** — pilih server dan kapasitas target. Periksa flag,
    asumsi, dan kecukupan data sebelum menyimpan skenario.
 6. **Konfigurasi KPI** — susun definisi, simpan sebagai draft, lalu setujui.
-   KPI tetap "Belum Dikonfigurasi" sampai disetujui.
-7. **Export Excel** — pilih baseline/simulasi opsional, buat file, lalu unduh.
+   Nilai KPI belum dihitung pada versi ini.
+7. **Export Excel** — pilih baseline/simulasi opsional, centang data sampel
+   mentah bila perlu, buat file, lalu unduh.
 
 ## Metode utama
 
@@ -141,4 +143,5 @@ environment. Semua harga dan nilai utilization fiktif. Lihat
 - Tipe instance target tidak divalidasi terhadap katalog vendor.
 - Agregasi antarserver bukan utilization seluruh kapasitas kecuali bobotnya
   dijelaskan.
-- Export tidak menyertakan sampel mentah.
+- Data sampel mentah hanya diekspor bila dicentang; maksimal 1.048.575 baris per
+  metrik (batas Excel).
